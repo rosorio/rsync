@@ -124,10 +124,23 @@ int sys_lremovexattr(const char *path, const char *name)
 ssize_t sys_llistxattr(const char *path, char *list, size_t size)
 {
 	unsigned char keylen;
-	ssize_t off, len = extattr_list_link(path, EXTATTR_NAMESPACE_USER, list, size);
+	ssize_t off= 0, len;
 
-	if (len <= 0 || (size_t)len > size)
+	/* Check for the required size to store the extended attibutes	*/
+	len = extattr_list_link(path, EXTATTR_NAMESPACE_USER, NULL, size);
+
+	if (len <= 0 || size == 0)
 		return len;
+
+	if ((size_t)len > size) {
+		/* Buffer is too small, behave like linux
+		 * syscall and request a bigger buffer */
+		errno = ERANGE;
+		return -1;
+	}
+
+	len = extattr_list_link(path, EXTATTR_NAMESPACE_USER, list, size);
+
 
 	/* FreeBSD puts a single-byte length before each string, with no '\0'
 	 * terminator.  We need to change this into a series of null-terminted
